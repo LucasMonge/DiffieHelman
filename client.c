@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
@@ -10,6 +11,7 @@ int main(){
   struct sockaddr_in serverAddr;
   socklen_t addr_size;
   int port = 12345;
+  char message[4] = "Test";
 
   clientSocket = socket(PF_INET, SOCK_STREAM, 0);
   
@@ -22,14 +24,17 @@ int main(){
   memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);  
 
 
-  addr_size = sizeof serverAddr;
+  addr_size = sizeof(serverAddr);
   connect(clientSocket, (struct sockaddr *) &serverAddr, addr_size);
 
   //Receved message
   recv(clientSocket, buffer, 1024, 0);
 
 	//message is printed
-  printf("Data received: %s",buffer);   
+  printf("Data received: %s",buffer); 
+  
+  sendto(clientSocket, message, sizeof(message), 0, (struct sockaddr *)&serverAddr, addr_size);
+    
 
   return 0;
 }
