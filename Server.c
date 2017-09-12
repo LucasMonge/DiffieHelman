@@ -20,7 +20,7 @@ int main(){
   
   serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
   
-  memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);  
+  memset(serverAddr.sin_zero, '\0', sizeof(serverAddr.sin_zero));  
 
   bind(welcomeSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
 
@@ -29,11 +29,17 @@ int main(){
   else
     printf("Error\n");
 
-  addr_size = sizeof serverStorage;
+  addr_size = sizeof(serverStorage);
   newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
 
   strcpy(buffer,"Hello World\n");
-  send(newSocket,buffer,13,0);
+  if(send(newSocket,buffer,13,0)<0)
+	perror("ERROR bad message\n");
+  else
+	memset(&buffer[0], 0, sizeof(buffer));
+	
+  recv(newSocket, buffer, 1024, 0);
+  printf("message is: %s\n", buffer);
 
   return 0;
 }
