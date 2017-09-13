@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 #define PORT 12345
 
@@ -45,11 +46,15 @@ int main(){
 	while(1){
 		
 		//Receive a message from the client
-		if(recv(newSocket, buffer, 1024, 0) < 0)
-			perror("ERROR in reception");
-		else
-			printf("message is: %s\n", buffer);
-		
+		if(recv(newSocket, buffer, 1024, 0) >= 0){
+			if(!strcmp(buffer,"Exit")){
+				close(newSocket);
+				printf("Socket closed\n");
+			}
+			else{
+				printf("message is: %s\n", buffer);
+			}
+		}
 	}
 	
 	return 0;
