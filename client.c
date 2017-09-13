@@ -11,6 +11,7 @@
 #define  MESSAGELEN  4
 #define  CIPHERTEXT_LEN ( crypto_secretbox_MACBYTES +MESSAGELEN )
 
+
 int main(){
 	unsigned char key [crypto_secretbox_KEYBYTES]= "3";
 	unsigned char nonce [crypto_secretbox_NONCEBYTES] = "1234";
@@ -20,14 +21,6 @@ int main(){
 	struct sockaddr_in serverAddr;
 	socklen_t addr_size;
 	unsigned char message[4] = "Test";
-	
-	crypto_secretbox_easy(ciphertext, message, sizeof(message), nonce, key);
-	printf("encrypted message is: %s\n", ciphertext);
-	
-	if (crypto_secretbox_open_easy(message, ciphertext, sizeof(ciphertext), nonce, key) >= 0)
-		printf("Message is: %s\n", message);
-	else
-		printf("something is wrong");
 		
 		//Creation of the socket (see server code)
 		clientSocket = socket(PF_INET, SOCK_STREAM, 0);
@@ -53,9 +46,10 @@ int main(){
 		scanf("%d", &choice);
 		switch(choice){
 			case 1:
+				crypto_secretbox_easy(ciphertext, message, sizeof(message), nonce, key);
 				//Send a message
 				//printf("Test");
-				if(sendto(clientSocket, message, sizeof(message), 0, (struct sockaddr *)&serverAddr, addr_size)<0)
+				if(sendto(clientSocket, ciphertext, sizeof(ciphertext), 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
 				break;
 			case 2:
