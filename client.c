@@ -5,6 +5,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <sodium.h>
+#include <unistd.h>
 
 #define PORT 12345
 #define  MESSAGELEN  4
@@ -46,23 +47,29 @@ int main(){
 		//message is printed
 		printf("Data received: %s",buffer); 
 
-	while(choice != 2){
+	while(1){
 	
 		printf("Choices:\n 1: send message\n  2:end communication\n");
 		scanf("%d", &choice);
 		switch(choice){
 			case 1:
-
 				//Send a message
+				//printf("Test");
 				if(sendto(clientSocket, message, sizeof(message), 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
 				break;
 			case 2:
+				if(sendto(clientSocket, "Exit", sizeof("Exit"), 0, (struct sockaddr *)&serverAddr, addr_size)<0)
+					perror("ERROR message not send");
+				close(clientSocket);
+				return 0;
 				break;
 			default: 
 				printf("wrong choice, try again\n");
 		}
 	}
-
+	//strcpy(message,"Exit");
+	
+		
 	return 0;
 }
