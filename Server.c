@@ -24,7 +24,7 @@ int main(){
 
 	//Link the socket and the server
 	bind(welcomeSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
-
+	
 	//Listen for connexion (max=5)
 	if(listen(welcomeSocket,5)==0)
 		printf("Listening\n");
@@ -34,17 +34,23 @@ int main(){
 	//Accept the client connexion to the socket
 	addr_size = sizeof(serverStorage);
 	newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
-
+	
 	//Send a message to the client
 	strcpy(buffer,"Hello World\n");
 	if(send(newSocket,buffer,13,0)<0)
 		perror("ERROR bad message\n");
 	else
 		memset(&buffer[0], 0, sizeof(buffer)); //Erase the buffer
-
-	//Receive a message from the client
-	recv(newSocket, buffer, 1024, 0);
-	printf("message is: %s\n", buffer);
-
+	
+	while(1){
+		
+		//Receive a message from the client
+		if(recv(newSocket, buffer, 1024, 0) < 0)
+			perror("ERROR in reception");
+		else
+			printf("message is: %s\n", buffer);
+		
+	}
+	
 	return 0;
 	}
