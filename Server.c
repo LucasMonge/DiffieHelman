@@ -4,13 +4,19 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <sodium.h>
 
 #define PORT 12345
+#define  MESSAGELEN  4
+#define  CIPHERTEXT_LEN ( crypto_secretbox_MACBYTES +MESSAGELEN )
 
 int main(){
-
+	unsigned char message[1024];
+	char recevedMessage[1024];
 	int welcomeSocket, newSocket;
-	char buffer[1024];
+	unsigned char key [crypto_secretbox_KEYBYTES]= "3";
+	unsigned char nonce [crypto_secretbox_NONCEBYTES] = "1234";
+	unsigned char buffer[CIPHERTEXT_LEN];
 	struct sockaddr_in serverAddr;
 	struct sockaddr_storage serverStorage;
 	socklen_t addr_size;
@@ -37,8 +43,8 @@ int main(){
 	newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
 	
 	//Send a message to the client
-	strcpy(buffer,"Hello World\n");
-	if(send(newSocket,buffer,13,0)<0)
+	strcpy(recevedMessage,"Hello World\n");
+	if(send(newSocket,recevedMessage,13,0)<0)
 		perror("ERROR bad message\n");
 	else
 		memset(&buffer[0], 0, sizeof(buffer)); //Erase the buffer
@@ -47,12 +53,14 @@ int main(){
 		
 		//Receive a message from the client
 		if(recv(newSocket, buffer, 1024, 0) >= 0){
-			if(!strcmp(buffer,"Exit")){
+			if (crypto_secretbox_open_easy(message, buffer, sizeof(buffer), nonce, key) >= 0)
+				printf("Message is: %s\n", message);
+			if(!strcmp((char *)buffer,"Exit")){
 				close(newSocket);
 				printf("Socket closed\n");
 			}
 			else{
-				printf("message is: %s\n", buffer);
+				printf("ciphertext is: %s\n", buffer);
 			}
 		}
 	}
