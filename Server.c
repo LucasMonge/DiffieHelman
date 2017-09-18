@@ -7,19 +7,46 @@
 #include <sodium.h>
 
 #define PORT 12345
-#define  MESSAGELEN  4
+#define  MESSAGELEN  30
 #define  CIPHERTEXT_LEN ( crypto_secretbox_MACBYTES +MESSAGELEN )
 
-int main(){
-	unsigned char message[1024];
+int listenSocket(int* welcomeSocket,int* newSocket, struct sockaddr_in serverAddr,struct sockaddr_storage serverStorage,socklen_t addr_size){
+
 	char recevedMessage[1024];
+	//unsigned char buffer[CIPHERTEXT_LEN];
+
+	//Listen for connexion (max=5)
+	if(listen(*welcomeSocket,5)==0)
+		printf("Listening\n");
+	else
+		printf("Error\n");
+		
+	//Accept the client connexion to the socket
+	addr_size = sizeof(serverStorage);
+	*newSocket = accept(*welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
+	
+	//Send a message to the client
+	strcpy(recevedMessage,"Hello World\n");
+	if(send(*newSocket,recevedMessage,13,0)<0){
+		perror("ERROR bad message\n");
+		return -1;
+	}
+	/*else
+		memset(&buffer[0], 0, sizeof(buffer)); //Erase the buffer*/
+		
+	return 0;
+}
+
+
+int main(){
+	unsigned char message[MESSAGELEN];
 	int welcomeSocket, newSocket;
 	unsigned char key [crypto_secretbox_KEYBYTES]= "3";
 	unsigned char nonce [crypto_secretbox_NONCEBYTES] = "1234";
 	unsigned char buffer[CIPHERTEXT_LEN];
 	struct sockaddr_in serverAddr;
 	struct sockaddr_storage serverStorage;
-	socklen_t addr_size;
+	socklen_t addr_size=0;
 	
 	//Creation of the socket AF_INET: protocol IPv4//SOCK_STREAM: type of the socket//0: TCP protocol
 	welcomeSocket = socket(AF_INET, SOCK_STREAM, 0); 
@@ -31,36 +58,24 @@ int main(){
 
 	//Link the socket and the server
 	bind(welcomeSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
-	
-	//Listen for connexion (max=5)
-	if(listen(welcomeSocket,5)==0)
-		printf("Listening\n");
-	else
-		printf("Error\n");
-
-	//Accept the client connexion to the socket
-	addr_size = sizeof(serverStorage);
-	newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
-	
-	//Send a message to the client
-	strcpy(recevedMessage,"Hello World\n");
-	if(send(newSocket,recevedMessage,13,0)<0)
-		perror("ERROR bad message\n");
-	else
-		memset(&buffer[0], 0, sizeof(buffer)); //Erase the buffer
+			
+	listenSocket(&welcomeSocket,&newSocket,serverAddr,serverStorage,addr_size);
 	
 	while(1){
 		
 		//Receive a message from the client
 		if(recv(newSocket, buffer, 1024, 0) >= 0){
+			//Decrypt the message
 			if (crypto_secretbox_open_easy(message, buffer, sizeof(buffer), nonce, key) >= 0)
 				printf("Message is: %s\n", message);
+			//Test if the client closed the socket
 			if(!strcmp((char *)buffer,"Exit")){
 				close(newSocket);
 				printf("Socket closed\n");
+				listenSocket(&welcomeSocket,&newSocket,serverAddr,serverStorage,addr_size);
 			}
 			else{
-				printf("ciphertext is: %s\n", buffer);
+				printf("Ciphertext is: %s\n", buffer);
 			}
 		}
 	}
