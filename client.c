@@ -11,8 +11,15 @@
 #define  MESSAGELEN  30
 #define  CIPHERTEXT_LEN ( crypto_secretbox_MACBYTES +MESSAGELEN )
 
-
+int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
+	
+	if(sendto(*socket,"ExchangeKey",sizeof("ExchangeKey"),0,	(struct sockaddr *) &serverAddr,addr_size)<0){
+		perror("ERROR");
+	}
+		return 0;
+}
 int main(){
+	
 	unsigned char key [crypto_secretbox_KEYBYTES]= "3";
 	unsigned char nonce [crypto_secretbox_NONCEBYTES] = "1234";
 	unsigned char ciphertext[CIPHERTEXT_LEN];
@@ -42,7 +49,7 @@ int main(){
 
 	while(1){
 	
-		printf("\nChoices:\n 1: send message\n 2: end communication\n");
+		printf("\nChoices:\n 1: Send message\n 2: End communication\n 3: Exchange keys\n");
 		scanf("%d", &choice);
 		switch(choice){
 			case 1:
@@ -58,6 +65,9 @@ int main(){
 				//Close the socket
 				close(clientSocket);
 				return 0;
+				break;
+			case 3:
+				exchangeKey(&clientSocket,serverAddr,addr_size);
 				break;
 			default: 
 				printf("Wrong choice, try again\n");
