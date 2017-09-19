@@ -37,6 +37,7 @@ char* convertBin(char *buf){
 	return temp;
 }
 
+//Diffie Helmann Key generator
 int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	char p[DHSIZE];
 	char g[DHSIZE];
@@ -52,18 +53,24 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	mpz_init(tempB);
 	mpz_init(B);
 	
+	//Pass to the next step
 	send(*socket,"First step",13,0);
+	//Get p
 	if(recv(*socket, buffer, 1024, 0) >= 0){
 		printf("Received p\n");
 		strcpy(p, buffer);
+		//Pass to the next step
 		send(*socket,"P received",13,0);
 	}
+	//Get g
 	if(recv(*socket, buffer, 1024, 0) >= 0){
 		printf("Received g\n");
 		strcpy(g, buffer);
+		//Pass to the next step
 		send(*socket,"G received",13,0);	
 	}
 	
+	//Convert p,g and b in gmp type
 	mpz_set_str(tempP,convertBin(p),2);
 	gmp_printf("P is : %Zd\n",tempP);
 	mpz_set_str(tempG,convertBin(g),2);
@@ -71,7 +78,7 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	mpz_set_str(tempB,convertBin(b),2);
 	gmp_printf("b is : %Zd\n",tempB);
 	
-	//Make g^a%p
+	//Make B=g^b%p
 	mpz_powm(B,tempG,tempB,tempP);
 	gmp_printf("B is : %Zd\n",B);
 	
@@ -106,6 +113,7 @@ int listenSocket(int* welcomeSocket,int* newSocket, struct sockaddr_in serverAdd
 
 
 int main(){
+	
 	unsigned char message[MESSAGELEN];
 	int welcomeSocket, newSocket;
 	unsigned char key [crypto_secretbox_KEYBYTES]= "3";
@@ -132,7 +140,7 @@ int main(){
 		
 		//Receive a message from the client
 		if(recv(newSocket, buffer, 1024, 0) >= 0){
-			printf("Buffer is %d\n",strcmp((char *)buffer,"ExchangeKey"));
+			printf("Buffer is %s\n",buffer);
 			
 			if(!strcmp((char *)buffer,"ExchangeKey")){
 				printf("Exchange\n");
