@@ -9,11 +9,32 @@
 
 #define PORT 12345
 #define  MESSAGELEN  30
+#define DHSIZE 256
 #define  CIPHERTEXT_LEN ( crypto_secretbox_MACBYTES +MESSAGELEN )
 
+void printHex(char *buf){
+		int i;
+	for(i = 0; i<256/8; i++){
+		printf("%hhx", buf[i]);
+	}
+	printf("\n");
+}
+
 int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
+	char g[DHSIZE];
+	randombytes_buf(g, DHSIZE);
+	char p[DHSIZE];
+	randombytes_buf(p, DHSIZE);
+	printHex(p);
+	printHex(g);
 	
 	if(sendto(*socket,"ExchangeKey",sizeof("ExchangeKey"),0,	(struct sockaddr *) &serverAddr,addr_size)<0){
+		perror("ERROR");
+	}
+	if(sendto(*socket, p, DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
+		perror("ERROR");
+	}
+	if(sendto(*socket, g, DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
 		perror("ERROR");
 	}
 		return 0;
