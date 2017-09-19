@@ -10,6 +10,7 @@
 #define  MESSAGELEN  30
 #define  CIPHERTEXT_LEN ( crypto_secretbox_MACBYTES +MESSAGELEN )
 
+//Listen and connect
 int listenSocket(int* welcomeSocket,int* newSocket, struct sockaddr_in serverAddr,struct sockaddr_storage serverStorage,socklen_t addr_size){
 
 	char recevedMessage[1024];
@@ -31,8 +32,6 @@ int listenSocket(int* welcomeSocket,int* newSocket, struct sockaddr_in serverAdd
 		perror("ERROR bad message\n");
 		return -1;
 	}
-	/*else
-		memset(&buffer[0], 0, sizeof(buffer)); //Erase the buffer*/
 		
 	return 0;
 }
@@ -65,11 +64,17 @@ int main(){
 		
 		//Receive a message from the client
 		if(recv(newSocket, buffer, 1024, 0) >= 0){
+			printf("Buffer is %d\n",strcmp((char *)buffer,"ExchangeKey"));
+			
+			if(!strcmp((char *)buffer,"ExchangeKey")){
+				printf("Exchange\n");
+			}
 			//Decrypt the message
-			if (crypto_secretbox_open_easy(message, buffer, sizeof(buffer), nonce, key) >= 0)
+			else if (crypto_secretbox_open_easy(message, buffer, sizeof(buffer), nonce, key) >= 0){
 				printf("Message is: %s\n", message);
+			}
 			//Test if the client closed the socket
-			if(!strcmp((char *)buffer,"Exit")){
+			else if(!strcmp((char *)buffer,"Exit")){
 				close(newSocket);
 				printf("Socket closed\n");
 				listenSocket(&welcomeSocket,&newSocket,serverAddr,serverStorage,addr_size);
