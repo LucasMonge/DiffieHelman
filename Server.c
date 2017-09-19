@@ -9,6 +9,30 @@
 #define PORT 12345
 #define  MESSAGELEN  30
 #define  CIPHERTEXT_LEN ( crypto_secretbox_MACBYTES +MESSAGELEN )
+#define DHSIZE 256
+
+void printHex(char *buf){
+		int i;
+	for(i = 0; i<256/8; i++){
+		printf("%hhx", buf[i]);
+	}
+	printf("\n");
+}
+
+int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
+	char p[DHSIZE];
+	char g[DHSIZE];
+	char buffer[DHSIZE];
+	if(recv(*socket, buffer, 1024, 0) >= 0){
+		strcpy(p, buffer);
+		printHex(p);
+	}
+	if(recv(*socket, buffer, 1024, 0) >= 0){
+		strcpy(g, buffer);
+		printHex(g);
+	}
+	return 0;
+}
 
 //Listen and connect
 int listenSocket(int* welcomeSocket,int* newSocket, struct sockaddr_in serverAddr,struct sockaddr_storage serverStorage,socklen_t addr_size){
@@ -68,6 +92,7 @@ int main(){
 			
 			if(!strcmp((char *)buffer,"ExchangeKey")){
 				printf("Exchange\n");
+				exchangeKey(&newSocket, serverAddr,addr_size);
 			}
 			//Decrypt the message
 			else if (crypto_secretbox_open_easy(message, buffer, sizeof(buffer), nonce, key) >= 0){
