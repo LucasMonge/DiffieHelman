@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <sodium.h>
+#include <gmp.h>
 
 #define PORT 12345
 #define  MESSAGELEN  30
@@ -19,18 +20,61 @@ void printHex(char *buf){
 	printf("\n");
 }
 
+//Convert into binary number
+char* convertBin(char *buf){
+
+	char *temp=malloc(DHSIZE);
+	int i;
+	for(i = 0;i<256;i++){
+		if(buf[i]&1){
+			temp[i]='1';
+		}
+		else{
+			temp[i]='0';
+		}
+	}
+	free(temp);
+	return temp;
+}
+
 int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	char p[DHSIZE];
 	char g[DHSIZE];
 	char buffer[DHSIZE];
+	char b[DHSIZE];
+	randombytes_buf(b, DHSIZE);
+	
+	printf("First step in exchange\n");
+	//Initialization of the gmp variables
+	mpz_t tempP,tempG,tempB,B;
+	mpz_init(tempP);
+	mpz_init(tempG);
+	mpz_init(tempB);
+	mpz_init(B);
+	
+	send(*socket,"First step",13,0);
 	if(recv(*socket, buffer, 1024, 0) >= 0){
+		printf("Received p\n");
 		strcpy(p, buffer);
-		printHex(p);
+		send(*socket,"P received",13,0);
 	}
 	if(recv(*socket, buffer, 1024, 0) >= 0){
+		printf("Received g\n");
 		strcpy(g, buffer);
-		printHex(g);
+		send(*socket,"G received",13,0);	
 	}
+	
+	mpz_set_str(tempP,convertBin(p),2);
+	gmp_printf("P is : %Zd\n",tempP);
+	mpz_set_str(tempG,convertBin(g),2);
+	gmp_printf("G is : %Zd\n",tempG);
+	mpz_set_str(tempB,convertBin(b),2);
+	gmp_printf("b is : %Zd\n",tempB);
+	
+	//Make g^a%p
+	mpz_powm(B,tempG,tempB,tempP);
+	gmp_printf("B is : %Zd\n",B);
+	
 	return 0;
 }
 
