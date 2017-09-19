@@ -39,6 +39,7 @@ char* convertBin(char *buf){
 }
 
 int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
+	char buffer[MESSAGELEN];
 	char g[DHSIZE];
 	randombytes_buf(g, DHSIZE);
 	char p[DHSIZE];
@@ -47,18 +48,20 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	randombytes_buf(a, DHSIZE);
 	
 	//Initialization of the gmp variables
-	mpz_t tempP,tempG,tempA,result;
+	mpz_t tempP,tempG,tempA,A;
 	mpz_init(tempP);
 	mpz_init(tempG);
 	mpz_init(tempA);
-	mpz_init(result);
+	mpz_init(A);
 	
 	if(sendto(*socket,"ExchangeKey",sizeof("ExchangeKey"),0,	(struct sockaddr *) &serverAddr,addr_size)<0){
 		perror("ERROR");
 	}
+	recv(*socket, buffer, 1024, 0);
 	if(sendto(*socket, p, DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
 		perror("ERROR");
 	}
+	recv(*socket, buffer, 1024, 0);
 	if(sendto(*socket, g, DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
 		perror("ERROR");
 	}
@@ -69,11 +72,11 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	mpz_set_str(tempG,convertBin(g),2);
 	gmp_printf("G is : %Zd\n",tempG);
 	mpz_set_str(tempA,convertBin(a),2);
-	gmp_printf("A is : %Zd\n",tempA);
+	gmp_printf("a is : %Zd\n",tempA);
 	
 	//Make g^a%p
-	mpz_powm(result,tempG,tempA,tempP);
-	gmp_printf("Result is : %Zd\n",result);
+	mpz_powm(A,tempG,tempA,tempP);
+	gmp_printf("A is : %Zd\n",A);
 	return 0;
 }
 int main(){
