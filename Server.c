@@ -54,20 +54,24 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	mpz_init(B);
 	
 	//Pass to the next step
-	send(*socket,"First step",13,0);
+	if(send(*socket,"First step",13,0)<0)
+		perror("ERROR");
+		
 	//Get p
 	if(recv(*socket, buffer, 1024, 0) >= 0){
 		printf("Received p\n");
 		strcpy(p, buffer);
 		//Pass to the next step
-		send(*socket,"P received",13,0);
+		if(send(*socket,"P received",13,0)<0)
+			printf("ERROR");
 	}
 	//Get g
 	if(recv(*socket, buffer, 1024, 0) >= 0){
 		printf("Received g\n");
 		strcpy(g, buffer);
 		//Pass to the next step
-		send(*socket,"G received",13,0);	
+		if(send(*socket,"G received",13,0)<0)
+			perror("ERROR");	
 	}
 	
 	//Convert p,g and b in gmp type
@@ -81,6 +85,10 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	//Make B=g^b%p
 	mpz_powm(B,tempG,tempB,tempP);
 	gmp_printf("B is : %Zd\n",B);
+	
+	//Send B
+	if(send(*socket, B, DHSIZE,0)<0)
+		perror("ERROR");
 	
 	return 0;
 }
