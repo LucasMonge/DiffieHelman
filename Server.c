@@ -25,7 +25,7 @@ char* convertBin(char *buf){
 
 	char *temp=malloc(DHSIZE);
 	int i;
-	for(i = 0;i<256;i++){
+	for(i = 0;i<DHSIZE;i++){
 		if(buf[i]&1){
 			temp[i]='1';
 		}
@@ -37,14 +37,28 @@ char* convertBin(char *buf){
 	return temp;
 }
 
+void randomGen(char* temp){
+	
+	
+	int i;
+	char *t=malloc(8);
+	//printf("Size : %d\n",strlen(buf));
+	for(i = 0;i<256;i++){
+		
+		randombytes_buf(t,8);
+		temp[i]=*t;
+	}
+	free(t);
+}
 //Diffie Helmann Key generator
 int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	char p[DHSIZE];
 	char g[DHSIZE];
 	char buffer[DHSIZE];
 	char b[DHSIZE];
-	randombytes_buf(b, DHSIZE);
 	
+	//randombytes_buf(b, DHSIZE);
+	randomGen(b);
 	printf("First step in exchange\n");
 	//Initialization of the gmp variables
 	mpz_t tempP,tempG,tempB,B;
@@ -61,6 +75,7 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	if(recv(*socket, buffer, 1024, 0) >= 0){
 		printf("Received p\n");
 		strcpy(p, buffer);
+		memset(buffer,0,DHSIZE);
 		//Pass to the next step
 		if(send(*socket,"P received",13,0)<0)
 			printf("ERROR");
@@ -69,6 +84,7 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	if(recv(*socket, buffer, 1024, 0) >= 0){
 		printf("Received g\n");
 		strcpy(g, buffer);
+		memset(buffer,0,DHSIZE);
 		//Pass to the next step
 		if(send(*socket,"G received",13,0)<0)
 			perror("ERROR");	
