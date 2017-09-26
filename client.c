@@ -57,17 +57,19 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	mpz_init(A);
 	
 	//Advert the server that exchange start
-	if(sendto(*socket,"ExchangeKey",sizeof("ExchangeKey"),0,	(struct sockaddr *) &serverAddr,addr_size)<0){
+	if(sendto(*socket,"ExchangeKey",sizeof("ExchangeKey"),0,(struct sockaddr *) &serverAddr,addr_size)<0){
 		perror("ERROR");
 	}
 	//Wait the server before send p
-	recv(*socket, buffer, 1024, 0);
+	if(recv(*socket, buffer, 1024, 0)<0)
+		perror("ERROR");
 	//Send p
 	if(sendto(*socket, p, DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
 		perror("ERROR");
 	}
 	//Wait the server before send g
-	recv(*socket, buffer, 1024, 0);
+	if(recv(*socket, buffer, 1024, 0)<0)
+		perror("ERROR");
 	//Send g
 	if(sendto(*socket, g, DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
 		perror("ERROR");
@@ -84,6 +86,7 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	//Make A=g^a%p
 	mpz_powm(A,tempG,tempA,tempP);
 	gmp_printf("A is : %Zd\n",A);
+
 	
 	return 0;
 }
