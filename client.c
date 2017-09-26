@@ -21,20 +21,19 @@ void printHex(char *buf){
 	printf("\n");
 }
 
-//Convert into binary number
+//Generate a cryptosecure random number
 void randomGen(char* temp){
-	
 	
 	int i;
 	char *t=malloc(8);
-	//printf("Size : %d\n",strlen(buf));
-	for(i = 0;i<256;i++){
-		
+	for(i = 0;i<256;i++){	
 		randombytes_buf(t,8);
 		temp[i]=*t;
 	}
 	free(t);
 }
+
+//Convert a number in binary
 char* convertBin(char *buf){
 
 	char *temp=malloc(DHSIZE);
@@ -57,24 +56,14 @@ void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, 
 	
 	char buffer[MESSAGELEN];
 	char g[DHSIZE];
-	//randombytes_buf(g, DHSIZE);
 	char  a[DHSIZE];
-	//randombytes_buf(p, DHSIZE);
 	char  p[DHSIZE];
-	//randombytes_buf(a, DHSIZE);
 	
-
+	//Generate random number
 	randomGen(g);
 	randomGen(a);
 	randomGen(p);
 	
-	/*temp=convertBin(a);
-	printf("Size : %d\n",strlen(temp));
-	int i=0;
-	for(i=0;i<256;i++){
-		printf("%c",temp[i]);
-	}
-	printf("\n");*/
 	//Initialization of the gmp variables
 	mpz_t tempP,tempG,tempA, A, B, Key;
 	mpz_init(tempP);
@@ -102,35 +91,40 @@ void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, 
 	if(sendto(*socket, convertBin(g), DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
 		perror("ERROR");
 	}
+	//Wait the server before continue
 	if(recv(*socket, buffer, 1024, 0)<0)
 		perror("ERROR");
 
 	//Convert the number in gmp format
 	mpz_set_str(tempP,convertBin(p),2);
-	gmp_printf("P is : %Zd\n",tempP);
+	//gmp_printf("P is : %Zd\n",tempP);
 	mpz_set_str(tempG,convertBin(g),2);
-	gmp_printf("G is : %Zd\n",tempG);
+	//gmp_printf("G is : %Zd\n",tempG);
 	mpz_set_str(tempA,convertBin(a),2);
-	gmp_printf("a is : %Zd\n",tempA);
+	//gmp_printf("a is : %Zd\n",tempA);
 	
 	//Make A=g^a%p
 	mpz_powm(A,tempG,tempA,tempP);
-	gmp_printf("A is : %Zd\n",A);
+	//gmp_printf("A is : %Zd\n",A);
 
+	//Send A to the server
 	if(sendto(*socket, mpz_get_str(NULL, 2, A), DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
 		perror("ERROR");
-	} 
-	//memset(buffer, 0, DHSIZE);
+	}
+	
+	//Receive B from the server
 	if(recv(*socket, buffer, 1024, 0) >= 0){
-		printf("Received B\n");
+		//printf("Received B\n");
 		mpz_set_str(B,buffer,2);
-		gmp_printf("B is: %Zd\n", B);
+		//gmp_printf("B is: %Zd\n", B);
 		memset(buffer,0,DHSIZE);
 	}
+	
+	//Key = B^a%p
 	mpz_powm(Key, B, tempA, tempP);
-	gmp_printf("The Key is: %Zd\n",Key);
+	//gmp_printf("The Key is: %Zd\n",Key);
 	
-	
+	//Return the key
 	mpz_get_str(key, 10, Key);
 }
 int main(){
@@ -142,7 +136,7 @@ int main(){
 	unsigned char buffer[1024];
 	struct sockaddr_in serverAddr;
 	socklen_t addr_size;
-	unsigned char message[MESSAGELEN] = "Hello world";
+	unsigned char message[MESSAGELEN] = "NORAJ";
 		
 	//Creation of the socket (see server code)
 	clientSocket = socket(PF_INET, SOCK_STREAM, 0);
@@ -163,19 +157,36 @@ int main(){
 	printf("Data received: %s",buffer); 
 
 	while(1){
-	
+
 		printf("\nChoices:\n 1: Send message\n 2: End communication\n 3: Exchange keys\n");
 		scanf("%d", &choice);
 		switch(choice){
+
 			case 1:
+			
+				getchar();
+				printf("Write your message :\n");
+				fgets((char*)&message,MESSAGELEN,stdin);
+				
 				//Send a message
 				crypto_secretbox_easy(ciphertext, message, sizeof(message), nonce, key);
-				if(sendto(clientSocket, "transmit", 8, 0, (struct sockaddr *)&serverAddr, addr_size)>=0)
+				
+				//Alert the server
+				if(sendto(clientSocket, "transmit", 8, 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
+				recv(clientSocket, buffer, 1024, 0);
+				
+				//Send the nonce
 				if(sendto(clientSocket, nonce, crypto_secretbox_NONCEBYTES, 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
+				recv(clientSocket, buffer, 1024, 0);
+				
+				//Send the cipher text
 				if(sendto(clientSocket,ciphertext, sizeof(ciphertext), 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
+				else
+					printf("Message sent\n");
+				memset(message,0,MESSAGELEN);
 				break;
 			case 2:
 				//Send a message to warn the server
@@ -186,6 +197,7 @@ int main(){
 				return 0;
 				break;
 			case 3:
+			//Key exchange
 				exchangeKey(&clientSocket,serverAddr,addr_size, (char*)key);
 				printf("The Key is: %s\n",key);
 				break;
