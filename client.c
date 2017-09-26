@@ -53,7 +53,7 @@ char* convertBin(char *buf){
 
 
 //Diffie Helmann Key generator
-int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
+void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, char* key){
 	
 	char buffer[MESSAGELEN];
 	char g[DHSIZE];
@@ -62,6 +62,7 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	//randombytes_buf(p, DHSIZE);
 	char  p[DHSIZE];
 	//randombytes_buf(a, DHSIZE);
+	
 
 	randomGen(g);
 	randomGen(a);
@@ -75,11 +76,13 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	}
 	printf("\n");*/
 	//Initialization of the gmp variables
-	mpz_t tempP,tempG,tempA,A;
+	mpz_t tempP,tempG,tempA, A, B, Key;
 	mpz_init(tempP);
 	mpz_init(tempG);
 	mpz_init(tempA);
 	mpz_init(A);
+	mpz_init(B);
+	mpz_init(Key);
 	
 	//Advert the server that exchange start
 	if(sendto(*socket,"ExchangeKey",sizeof("ExchangeKey"),0,(struct sockaddr *) &serverAddr,addr_size)<0){
@@ -99,6 +102,8 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	if(sendto(*socket, convertBin(g), DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
 		perror("ERROR");
 	}
+	if(recv(*socket, buffer, 1024, 0)<0)
+		perror("ERROR");
 
 	//Convert the number in gmp format
 	mpz_set_str(tempP,convertBin(p),2);
@@ -112,12 +117,25 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	mpz_powm(A,tempG,tempA,tempP);
 	gmp_printf("A is : %Zd\n",A);
 
+	if(sendto(*socket, mpz_get_str(NULL, 2, A), DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
+		perror("ERROR");
+	} 
+	//memset(buffer, 0, DHSIZE);
+	if(recv(*socket, buffer, 1024, 0) >= 0){
+		printf("Received B\n");
+		mpz_set_str(B,buffer,2);
+		gmp_printf("B is: %Zd\n", B);
+		memset(buffer,0,DHSIZE);
+	}
+	mpz_powm(Key, B, tempA, tempP);
+	gmp_printf("The Key is: %Zd\n",Key);
 	
-	return 0;
+	
+	mpz_get_str(key, 10, Key);
 }
 int main(){
 	
-	unsigned char key [crypto_secretbox_KEYBYTES]= "3";
+	unsigned char key [crypto_secretbox_KEYBYTES];
 	unsigned char nonce [crypto_secretbox_NONCEBYTES] = "1234";
 	unsigned char ciphertext[CIPHERTEXT_LEN];
 	int clientSocket, choice = 1;
@@ -152,7 +170,11 @@ int main(){
 			case 1:
 				//Send a message
 				crypto_secretbox_easy(ciphertext, message, sizeof(message), nonce, key);
-				if(sendto(clientSocket, ciphertext, sizeof(ciphertext), 0, (struct sockaddr *)&serverAddr, addr_size)<0)
+				if(sendto(clientSocket, "transmit", 8, 0, (struct sockaddr *)&serverAddr, addr_size)>=0)
+					perror("ERROR message not send");
+				if(sendto(clientSocket, nonce, crypto_secretbox_NONCEBYTES, 0, (struct sockaddr *)&serverAddr, addr_size)<0)
+					perror("ERROR message not send");
+				if(sendto(clientSocket,ciphertext, sizeof(ciphertext), 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
 				break;
 			case 2:
@@ -164,7 +186,8 @@ int main(){
 				return 0;
 				break;
 			case 3:
-				exchangeKey(&clientSocket,serverAddr,addr_size);
+				exchangeKey(&clientSocket,serverAddr,addr_size, (char*)key);
+				printf("The Key is: %s\n",key);
 				break;
 			default: 
 				printf("Wrong choice, try again\n");
