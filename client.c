@@ -22,11 +22,24 @@ void printHex(char *buf){
 }
 
 //Convert into binary number
+void randomGen(char* temp){
+	
+	
+	int i;
+	char *t=malloc(8);
+	//printf("Size : %d\n",strlen(buf));
+	for(i = 0;i<256;i++){
+		
+		randombytes_buf(t,8);
+		temp[i]=*t;
+	}
+	free(t);
+}
 char* convertBin(char *buf){
 
 	char *temp=malloc(DHSIZE);
 	int i;
-	for(i = 0;i<256;i++){
+	for(i = 0;i<DHSIZE;i++){
 		if(buf[i]&1){
 			temp[i]='1';
 		}
@@ -38,17 +51,29 @@ char* convertBin(char *buf){
 	return temp;
 }
 
+
 //Diffie Helmann Key generator
 int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	
 	char buffer[MESSAGELEN];
 	char g[DHSIZE];
-	randombytes_buf(g, DHSIZE);
-	char p[DHSIZE];
-	randombytes_buf(p, DHSIZE);
-	char a[DHSIZE];
-	randombytes_buf(a, DHSIZE);
+	//randombytes_buf(g, DHSIZE);
+	char  a[DHSIZE];
+	//randombytes_buf(p, DHSIZE);
+	char  p[DHSIZE];
+	//randombytes_buf(a, DHSIZE);
+
+	randomGen(g);
+	randomGen(a);
+	randomGen(p);
 	
+	/*temp=convertBin(a);
+	printf("Size : %d\n",strlen(temp));
+	int i=0;
+	for(i=0;i<256;i++){
+		printf("%c",temp[i]);
+	}
+	printf("\n");*/
 	//Initialization of the gmp variables
 	mpz_t tempP,tempG,tempA,A;
 	mpz_init(tempP);
@@ -64,14 +89,14 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	if(recv(*socket, buffer, 1024, 0)<0)
 		perror("ERROR");
 	//Send p
-	if(sendto(*socket, p, DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
+	if(sendto(*socket, convertBin(p), DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
 		perror("ERROR");
 	}
 	//Wait the server before send g
 	if(recv(*socket, buffer, 1024, 0)<0)
 		perror("ERROR");
 	//Send g
-	if(sendto(*socket, g, DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
+	if(sendto(*socket, convertBin(g), DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
 		perror("ERROR");
 	}
 
