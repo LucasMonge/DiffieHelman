@@ -51,7 +51,7 @@ void randomGen(char* temp){
 	free(t);
 }
 //Diffie Helmann Key generator
-int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
+void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, char* key){
 	char p[DHSIZE];
 	char g[DHSIZE];
 	char buffer[DHSIZE];
@@ -61,12 +61,13 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	randomGen(b);
 	printf("First step in exchange\n");
 	//Initialization of the gmp variables
-	mpz_t tempP,tempG,tempB,B;
+	mpz_t tempP,tempG,tempB, A, B, Key;
 	mpz_init(tempP);
 	mpz_init(tempG);
 	mpz_init(tempB);
 	mpz_init(B);
-	
+	mpz_init(A);	
+	mpz_init(Key);	
 	//Pass to the next step
 	if(send(*socket,"First step",13,0)<0)
 		perror("ERROR");
@@ -102,11 +103,23 @@ int exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size){
 	mpz_powm(B,tempG,tempB,tempP);
 	gmp_printf("B is : %Zd\n",B);
 	
-	//Send B
-	if(send(*socket, B, DHSIZE,0)<0)
-		perror("ERROR");
+	if(recv(*socket, buffer, 1024, 0) >= 0){
+		printf("Received A\n");
+		mpz_set_str(A,buffer,2);
+		gmp_printf("A is: %Zd\n", A);
+		memset(buffer,0,DHSIZE);
+		//Pass to the next step
+		if(send(*socket, mpz_get_str(NULL, 2, B), DHSIZE ,0 )<0){
+			perror("ERROR");
+		} 
+		
+	}
 	
-	return 0;
+	mpz_powm(Key, A, tempB, tempP);
+	
+	
+	mpz_get_str(key, 10, Key);
+	
 }
 
 //Listen and connect
@@ -140,8 +153,8 @@ int main(){
 	
 	unsigned char message[MESSAGELEN];
 	int welcomeSocket, newSocket;
-	unsigned char key [crypto_secretbox_KEYBYTES]= "3";
-	unsigned char nonce [crypto_secretbox_NONCEBYTES] = "1234";
+	unsigned char key [crypto_secretbox_KEYBYTES];
+	unsigned char nonce [crypto_secretbox_NONCEBYTES];
 	unsigned char buffer[CIPHERTEXT_LEN];
 	struct sockaddr_in serverAddr;
 	struct sockaddr_storage serverStorage;
@@ -164,15 +177,23 @@ int main(){
 		
 		//Receive a message from the client
 		if(recv(newSocket, buffer, 1024, 0) >= 0){
-			printf("Buffer is %s\n",buffer);
+			//printf("Buffer is %s\n",buffer);
+			
 			
 			if(!strcmp((char *)buffer,"ExchangeKey")){
 				printf("Exchange\n");
-				exchangeKey(&newSocket, serverAddr,addr_size);
+				exchangeKey(&newSocket,serverAddr,addr_size, (char*)key);
+				printf("The Key is: %s\n",key);
 			}
 			//Decrypt the message
-			else if (crypto_secretbox_open_easy(message, buffer, sizeof(buffer), nonce, key) >= 0){
-				printf("Message is: %s\n", message);
+			else if (!strcmp((char *)buffer,"transmit")){
+				recv(newSocket, nonce, 1024, 0);
+				memset(buffer,0,1024);
+				recv(newSocket, buffer, 1024, 0);
+				if(crypto_secretbox_open_easy(message, buffer, sizeof(buffer), nonce, key)>=0)
+					printf("Message is: %s\n", message);
+				else
+					printf("Error decrypt\n");
 			}
 			//Test if the client closed the socket
 			else if(!strcmp((char *)buffer,"Exit")){
@@ -184,6 +205,7 @@ int main(){
 				printf("Ciphertext is: %s\n", buffer);
 			}
 		}
+		memset(buffer, 0, 1024);
 	}
 	
 	return 0;
