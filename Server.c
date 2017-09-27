@@ -12,14 +12,6 @@
 #define  CIPHERTEXT_LEN ( crypto_secretbox_MACBYTES +MESSAGELEN )
 #define DHSIZE 256
 
-void printHex(char *buf){
-		int i;
-	for(i = 0; i<256/8; i++){
-		printf("%hhx", buf[i]);
-	}
-	printf("\n");
-}
-
 //Convert into binary number
 char* convertBin(char *buf){
 
@@ -206,11 +198,10 @@ int main(){
 				listenSocket(&welcomeSocket,&newSocket,serverAddr,serverStorage,addr_size);
 			}
 			else{
-				printf("Ciphertext is: %s\n", buffer);
+				printf("Unexpected message\n");
 			}
 		}
 		memset(buffer, 0, 1024);
 	}
-	
 	return 0;
 	}
