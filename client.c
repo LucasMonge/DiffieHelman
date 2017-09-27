@@ -13,15 +13,7 @@
 #define DHSIZE 256
 #define  CIPHERTEXT_LEN ( crypto_secretbox_MACBYTES +MESSAGELEN )
 
-void printHex(char *buf){
-		int i;
-	for(i = 0; i<256/8; i++){
-		printf("%hhx", buf[i]);
-	}
-	printf("\n");
-}
-
-//Generate a cryptosecure random number
+//Generate a cryptosecure random number 
 void randomGen(char* temp){
 	
 	int i;
@@ -132,7 +124,7 @@ int main(){
 	unsigned char key [crypto_secretbox_KEYBYTES];
 	unsigned char nonce [crypto_secretbox_NONCEBYTES] = "1234";
 	unsigned char ciphertext[CIPHERTEXT_LEN];
-	int clientSocket, choice = 1;
+	int clientSocket, choice = 0;
 	unsigned char buffer[1024];
 	struct sockaddr_in serverAddr;
 	socklen_t addr_size;
@@ -163,7 +155,6 @@ int main(){
 		switch(choice){
 
 			case 1:
-			
 				getchar();
 				printf("Write your message :\n");
 				fgets((char*)&message,MESSAGELEN,stdin);
@@ -203,6 +194,7 @@ int main(){
 				break;
 			default: 
 				printf("Wrong choice, try again\n");
+				getchar();
 		}
 	}
 		
