@@ -30,16 +30,25 @@ char* convertBin(char *buf){
 }
 
 //Generate a cryptosecure random number
-void randomGen(char* temp){
+void randomGen(char* temp,int size){
 	
 	int i;
 	char *t=malloc(8);
-	for(i = 0;i<256;i++){
+	for(i = 0;i<size;i++){
 		
 		randombytes_buf(t,8);
 		temp[i]=*t;
 	}
 	free(t);
+}
+
+void copy(unsigned char* dest,unsigned char* src){
+
+	int i;
+	for(i=0;i<sizeof(src);i++){
+		dest[i]=*src;
+		src+=1;
+	}
 }
 
 //Diffie Helmann Key generator
@@ -49,7 +58,7 @@ void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, 
 	char buffer[DHSIZE];
 	char b[DHSIZE];
 	
-	randomGen(b);
+	randomGen(b,256);
 	printf("First step in exchange\n");
 	//Initialization of the gmp variables
 	mpz_t tempP,tempG,tempB, A, B, Key;
@@ -145,8 +154,11 @@ int listenSocket(int* welcomeSocket,int* newSocket, struct sockaddr_in serverAdd
 int main(){
 	
 	unsigned char message[MESSAGELEN];
+	unsigned char newmessage[MESSAGELEN]="I have received ";
 	int welcomeSocket, newSocket;
 	unsigned char key [crypto_secretbox_KEYBYTES];
+	unsigned char tmpkey [crypto_secretbox_KEYBYTES];
+	unsigned char ciphertext[CIPHERTEXT_LEN];
 	unsigned char nonce [crypto_secretbox_NONCEBYTES];
 	unsigned char buffer[CIPHERTEXT_LEN];
 	struct sockaddr_in serverAddr;
@@ -177,18 +189,54 @@ int main(){
 				printf("Exchange\n");
 				exchangeKey(&newSocket,serverAddr,addr_size, (char*)key);
 				printf("The Key is: %s\n",key);
+				if(strcmp((char*)key,"0")){
+					send(newSocket,"OK",2,0);
+				}
+				else{
+					send(newSocket,"NOTOK",2,0);
+				}
 			}
 			//Decrypt the message
 			else if (!strcmp((char *)buffer,"transmit")){
 				send(newSocket,"Start",5,0);
-				recv(newSocket, nonce, 1024, 0);
+				recv(newSocket, nonce, crypto_secretbox_NONCEBYTES, 0);
 				memset(buffer,0,1024);
 				send(newSocket,"Nonce",5,0);
 				recv(newSocket, buffer, 1024, 0);
-				if(crypto_secretbox_open_easy(message, buffer, sizeof(buffer), nonce, key)>=0)
-					printf("Message is: %s\n", message);
+				printf("key before decrypt is:%s\n",key);
+				copy(tmpkey,key);
+				if(crypto_secretbox_open_easy(message, buffer, sizeof(buffer), nonce, tmpkey)>=0)
+					printf("I have received %s", message);
 				else
-					printf("Error decrypt\n");
+					printf("Error decrypt\n");				
+				strcat((char*)newmessage,(char*)message);
+				memset(nonce,0,sizeof(nonce));
+				printf("key after decrypt is:%s\n",key);
+				//Generate a random nonce
+				randomGen((char*)nonce,crypto_secretbox_NONCEBYTES);
+				
+				//Alert the client
+				if(sendto(newSocket, "transmit", 8, 0, (struct sockaddr *)&serverAddr, addr_size)<0)
+					perror("ERROR message not send");
+				recv(newSocket, buffer, 1024, 0);
+				
+				//Send the nonce
+				if(sendto(newSocket, nonce, crypto_secretbox_NONCEBYTES, 0, (struct sockaddr *)&serverAddr, addr_size)<0)
+					perror("ERROR message not send");
+				recv(newSocket, buffer, 1024, 0);
+				
+
+				//Send a message
+				copy(tmpkey,key);
+				crypto_secretbox_easy(ciphertext, newmessage, sizeof(newmessage), nonce, tmpkey);
+				printf("Encrypt done\n");
+				printf("key before encrypt is:%s\n",key);
+				//Send the cipher text
+				if(sendto(newSocket,ciphertext, sizeof(ciphertext), 0, (struct sockaddr *)&serverAddr, addr_size)<0)
+					perror("ERROR message not send");
+				else
+					printf("Message sent\n");
+				printf("key after encrypt is:%s\n",key);
 			}
 			
 			//Test if the client closed the socket
