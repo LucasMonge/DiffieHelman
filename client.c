@@ -11,7 +11,7 @@
 #define PORT 12345
 #define  MESSAGELEN  30
 #define DHSIZE 256
-#define  CIPHERTEXT_LEN ( crypto_secretbox_MACBYTES +MESSAGELEN )
+#define  CIPHERTEXT_LEN ( MESSAGELEN )
 
 //Generate a cryptosecure random number 
 void randomGen(char* temp,int size){
@@ -56,12 +56,12 @@ void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, 
 	char buffer[MESSAGELEN];
 	char g[DHSIZE];
 	char  a[DHSIZE];
-	char  p[DHSIZE];
+	char  p[DHSIZE]="23";
 	
 	//Generate random number
 	randomGen(g,256);
 	randomGen(a,256);
-	randomGen(p,256);
+	//randomGen(p,256);
 	
 	//Initialization of the gmp variables
 	mpz_t tempP,tempG,tempA, A, B, Key;
@@ -128,8 +128,8 @@ void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, 
 }
 int main(){
 	
-	unsigned char key [crypto_secretbox_KEYBYTES];
-	unsigned char tmpkey [crypto_secretbox_KEYBYTES];
+	unsigned char key [DHSIZE];
+	unsigned char tmpkey [DHSIZE];
 	unsigned char nonce [crypto_secretbox_NONCEBYTES];
 	unsigned char ciphertext[CIPHERTEXT_LEN];
 	int clientSocket, choice = 0;
@@ -138,6 +138,7 @@ int main(){
 	struct sockaddr_in serverAddr;
 	socklen_t addr_size;
 	unsigned char message[MESSAGELEN];
+	unsigned char mac[crypto_secretbox_MACBYTES];
 		
 	//Creation of the socket (see server code)
 	clientSocket = socket(PF_INET, SOCK_STREAM, 0);
@@ -158,14 +159,14 @@ int main(){
 	printf("Data received: %s",buffer); 
 
 	//Key exchange
-	while(1){
+	//while(1){
 		exchangeKey(&clientSocket,serverAddr,addr_size, (char*)key);
 		printf("The Key is: %s\n",key);
-		recv(clientSocket, keyCheck, 1024, 0);
-		if(strcmp((char*)key,"0")&&strcmp(keyCheck,"OK")){
-			break;
-		}
-	}
+	//	recv(clientSocket, keyCheck, 1024, 0);
+	//	if(strcmp((char*)key,"0")&&strcmp(keyCheck,"OK")){
+	//		break;
+	//	}
+	//}
 	
 	while(1){
 
@@ -184,8 +185,8 @@ int main(){
 
 				//Send a message
 				printf("Smthing\n");
-				copy(tmpkey,key);
-				crypto_secretbox_easy(ciphertext, message, sizeof(message), nonce, tmpkey);
+			//	copy(tmpkey,key);
+				crypto_secretbox_detached(ciphertext,mac, message,CIPHERTEXT_LEN, nonce, key);
 				printf("Smthing\n");
 
 
@@ -221,8 +222,8 @@ int main(){
 				recv(clientSocket, buffer, 1024, 0);
 				//printf("Cipher is : %s\n",(char*)buffer);
 				printf("key before decrypt is:%s\n",key);
-				copy(tmpkey,key);
-				if(crypto_secretbox_open_easy(message, buffer, sizeof(buffer), nonce, tmpkey)>=0)
+				//copy(tmpkey,key);
+				if(crypto_secretbox_open_detached(message, buffer,mac, sizeof(buffer), nonce, key)>=0)
 					printf("%s", message);
 				else
 					printf("Error decrypt\n");

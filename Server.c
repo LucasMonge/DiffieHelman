@@ -9,7 +9,7 @@
 
 #define PORT 12345
 #define  MESSAGELEN  30
-#define  CIPHERTEXT_LEN ( crypto_secretbox_MACBYTES +MESSAGELEN )
+#define  CIPHERTEXT_LEN ( MESSAGELEN )
 #define DHSIZE 256
 
 //Convert into binary number
@@ -53,7 +53,7 @@ void copy(unsigned char* dest,unsigned char* src){
 
 //Diffie Helmann Key generator
 void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, char* key){
-	char p[DHSIZE];
+	char p[DHSIZE]="23";
 	char g[DHSIZE];
 	char buffer[DHSIZE];
 	char b[DHSIZE];
@@ -156,14 +156,16 @@ int main(){
 	unsigned char message[MESSAGELEN];
 	unsigned char newmessage[MESSAGELEN]="I have received ";
 	int welcomeSocket, newSocket;
-	unsigned char key [crypto_secretbox_KEYBYTES];
-	unsigned char tmpkey [crypto_secretbox_KEYBYTES];
+	unsigned char key [DHSIZE];
+	//unsigned char tmpkey [DHSIZE];
 	unsigned char ciphertext[CIPHERTEXT_LEN];
 	unsigned char nonce [crypto_secretbox_NONCEBYTES];
 	unsigned char buffer[CIPHERTEXT_LEN];
 	struct sockaddr_in serverAddr;
 	struct sockaddr_storage serverStorage;
 	socklen_t addr_size=0;
+	unsigned char mac[crypto_secretbox_MACBYTES];
+
 	
 	//Creation of the socket AF_INET: protocol IPv4//SOCK_STREAM: type of the socket//0: TCP protocol
 	welcomeSocket = socket(AF_INET, SOCK_STREAM, 0); 
@@ -180,7 +182,7 @@ int main(){
 	listenSocket(&welcomeSocket,&newSocket,serverAddr,serverStorage,addr_size);
 	
 	while(1){
-		
+		printf("key in the while is:%s\n",key);
 		//Receive a message from the client
 		if(recv(newSocket, buffer, 1024, 0) >= 0){
 			
@@ -189,12 +191,12 @@ int main(){
 				printf("Exchange\n");
 				exchangeKey(&newSocket,serverAddr,addr_size, (char*)key);
 				printf("The Key is: %s\n",key);
-				if(strcmp((char*)key,"0")){
+				/*if(strcmp((char*)key,"0")){
 					send(newSocket,"OK",2,0);
 				}
 				else{
 					send(newSocket,"NOTOK",2,0);
-				}
+				}*/
 			}
 			//Decrypt the message
 			else if (!strcmp((char *)buffer,"transmit")){
@@ -204,8 +206,8 @@ int main(){
 				send(newSocket,"Nonce",5,0);
 				recv(newSocket, buffer, 1024, 0);
 				printf("key before decrypt is:%s\n",key);
-				copy(tmpkey,key);
-				if(crypto_secretbox_open_easy(message, buffer, sizeof(buffer), nonce, tmpkey)>=0)
+				//copy(tmpkey,key);
+				if(crypto_secretbox_open_detached(message, buffer,mac, sizeof(buffer), nonce, key)>=0)
 					printf("I have received %s", message);
 				else
 					printf("Error decrypt\n");				
@@ -227,8 +229,8 @@ int main(){
 				
 
 				//Send a message
-				copy(tmpkey,key);
-				crypto_secretbox_easy(ciphertext, newmessage, sizeof(newmessage), nonce, tmpkey);
+				//copy(tmpkey,key);
+				crypto_secretbox_detached(ciphertext, mac,newmessage, CIPHERTEXT_LEN, nonce, key);
 				printf("Encrypt done\n");
 				printf("key before encrypt is:%s\n",key);
 				//Send the cipher text
@@ -249,7 +251,7 @@ int main(){
 				printf("Unexpected message\n");
 			}
 		}
-		memset(buffer, 0, 1024);
+		//memset(buffer, 0, 1024);
 	}
 	return 0;
 	}
