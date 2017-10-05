@@ -129,12 +129,12 @@ void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, 
 int main(){
 	
 	unsigned char key [DHSIZE];
-	unsigned char tmpkey [DHSIZE];
+	
 	unsigned char nonce [crypto_secretbox_NONCEBYTES];
 	unsigned char ciphertext[CIPHERTEXT_LEN];
 	int clientSocket, choice = 0;
 	unsigned char buffer[1024];
-	char keyCheck[5];
+	//char keyCheck[5];
 	struct sockaddr_in serverAddr;
 	socklen_t addr_size;
 	unsigned char message[MESSAGELEN];
@@ -178,28 +178,28 @@ int main(){
 				getchar();
 				printf("Write your message :\n");
 				fgets((char*)&message,MESSAGELEN,stdin);
-				
+
 				//Generate a random nonce
 				randomGen((char*)nonce,crypto_secretbox_NONCEBYTES);
 				printf("key before is:%s\n",key);
 
 				//Send a message
-				printf("Smthing\n");
-			//	copy(tmpkey,key);
 				crypto_secretbox_detached(ciphertext,mac, message,CIPHERTEXT_LEN, nonce, key);
-				printf("Smthing\n");
 
 
 				//Alert the server
 				if(sendto(clientSocket, "transmit", 8, 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
-				recv(clientSocket, buffer, 1024, 0);
+				recv(clientSocket, buffer, MESSAGELEN, 0);
 				
 				//Send the nonce
 				if(sendto(clientSocket, nonce, crypto_secretbox_NONCEBYTES, 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
-				recv(clientSocket, buffer, 1024, 0);
-				
+				recv(clientSocket, buffer, MESSAGELEN, 0);
+				//Send the mac
+				if(sendto(clientSocket, mac, sizeof(mac), 0, (struct sockaddr *)&serverAddr, addr_size)<0)
+					perror("ERROR message not send");
+				recv(clientSocket, buffer, MESSAGELEN, 0);
 				//Send the cipher text
 				if(sendto(clientSocket,ciphertext, sizeof(ciphertext), 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
@@ -207,22 +207,24 @@ int main(){
 					printf("Message sent\n");
 				
 				
-				printf("key is:%s\n",key);
-				recv(clientSocket, buffer, 1024, 0);
-				memset(buffer,0,1024);
+				//printf("key is:%s\n",key);
+				recv(clientSocket, buffer, MESSAGELEN, 0);
+				memset(ciphertext,0,CIPHERTEXT_LEN);
+				memset(buffer,0,MESSAGELEN);
 				memset(message,0,MESSAGELEN);
+				memset(nonce,0,crypto_secretbox_NONCEBYTES+5);
 				send(clientSocket,"Start",5,0);
 				
-				memset(nonce,'\0',crypto_secretbox_NONCEBYTES);
 				recv(clientSocket, nonce, crypto_secretbox_NONCEBYTES, 0);
 				
-				memset(buffer,0,1024);
+				memset(buffer,0,MESSAGELEN);
 				send(clientSocket,"Nonce",5,0);
 				
-				recv(clientSocket, buffer, 1024, 0);
-				//printf("Cipher is : %s\n",(char*)buffer);
-				printf("key before decrypt is:%s\n",key);
-				//copy(tmpkey,key);
+				recv(clientSocket,mac,128,0);
+				send(clientSocket,"MAC",3,0);
+				recv(clientSocket, buffer, MESSAGELEN, 0);
+				printf("Nonce is : %s\n",nonce);
+				
 				if(crypto_secretbox_open_detached(message, buffer,mac, sizeof(buffer), nonce, key)>=0)
 					printf("%s", message);
 				else

@@ -59,7 +59,7 @@ void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, 
 	char b[DHSIZE];
 	
 	randomGen(b,256);
-	printf("First step in exchange\n");
+	//printf("First step in exchange\n");
 	//Initialization of the gmp variables
 	mpz_t tempP,tempG,tempB, A, B, Key;
 	mpz_init(tempP);
@@ -74,7 +74,7 @@ void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, 
 		
 	//Get p
 	if(recv(*socket, buffer, 1024, 0) >= 0){
-		printf("Received p\n");
+		//printf("Received p\n");
 		strcpy(p, buffer);
 		memset(buffer,0,DHSIZE);
 		//Pass to the next step
@@ -83,7 +83,7 @@ void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, 
 	}
 	//Get g
 	if(recv(*socket, buffer, 1024, 0) >= 0){
-		printf("Received g\n");
+		//printf("Received g\n");
 		strcpy(g, buffer);
 		memset(buffer,0,DHSIZE);
 		//Pass to the next step
@@ -182,7 +182,8 @@ int main(){
 	listenSocket(&welcomeSocket,&newSocket,serverAddr,serverStorage,addr_size);
 	
 	while(1){
-		printf("key in the while is:%s\n",key);
+		//printf("key in the while is:%s\n",key);
+		printf("Buffer in the while is: %s\n",buffer);
 		//Receive a message from the client
 		if(recv(newSocket, buffer, 1024, 0) >= 0){
 			
@@ -191,6 +192,7 @@ int main(){
 				printf("Exchange\n");
 				exchangeKey(&newSocket,serverAddr,addr_size, (char*)key);
 				printf("The Key is: %s\n",key);
+				memset(buffer,0,MESSAGELEN);
 				/*if(strcmp((char*)key,"0")){
 					send(newSocket,"OK",2,0);
 				}
@@ -201,44 +203,56 @@ int main(){
 			//Decrypt the message
 			else if (!strcmp((char *)buffer,"transmit")){
 				send(newSocket,"Start",5,0);
+				//Receive the nonce
 				recv(newSocket, nonce, crypto_secretbox_NONCEBYTES, 0);
-				memset(buffer,0,1024);
+				memset(buffer,0,MESSAGELEN);
 				send(newSocket,"Nonce",5,0);
-				recv(newSocket, buffer, 1024, 0);
-				printf("key before decrypt is:%s\n",key);
-				//copy(tmpkey,key);
+				//Receive the mac
+				recv(newSocket,mac,crypto_secretbox_MACBYTES,0);
+				send(newSocket,"MAC",3,0);
+				//Receive the buffer
+				recv(newSocket, buffer, MESSAGELEN, 0);
+
+				//Decrypt the message
 				if(crypto_secretbox_open_detached(message, buffer,mac, sizeof(buffer), nonce, key)>=0)
 					printf("I have received %s", message);
 				else
-					printf("Error decrypt\n");				
+					printf("Error decrypt\n");		
 				strcat((char*)newmessage,(char*)message);
-				memset(nonce,0,sizeof(nonce));
-				printf("key after decrypt is:%s\n",key);
+				printf("Newmess is %s\n",newmessage);
+				
+				memset(nonce,0,crypto_secretbox_NONCEBYTES);
+				memset(mac,0,crypto_secretbox_MACBYTES);
 				//Generate a random nonce
 				randomGen((char*)nonce,crypto_secretbox_NONCEBYTES);
-				
+				crypto_secretbox_detached(ciphertext, mac,newmessage, CIPHERTEXT_LEN, nonce, key);
 				//Alert the client
 				if(sendto(newSocket, "transmit", 8, 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
-				recv(newSocket, buffer, 1024, 0);
+				recv(newSocket, buffer, MESSAGELEN, 0);
 				
 				//Send the nonce
 				if(sendto(newSocket, nonce, crypto_secretbox_NONCEBYTES, 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
-				recv(newSocket, buffer, 1024, 0);
 				
-
-				//Send a message
-				//copy(tmpkey,key);
-				crypto_secretbox_detached(ciphertext, mac,newmessage, CIPHERTEXT_LEN, nonce, key);
+				recv(newSocket, buffer, MESSAGELEN, 0);
+				memset(buffer, 0, MESSAGELEN);
+				//Send the mac
+				printf("The Key is: %s\n",key);
+				
+				if(sendto(newSocket, mac, sizeof(mac), 0, (struct sockaddr *)&serverAddr, addr_size)<0)
+					perror("ERROR message not send");
+				recv(newSocket, buffer, MESSAGELEN, 0);
+				
+				memset(buffer, 0, MESSAGELEN);
 				printf("Encrypt done\n");
-				printf("key before encrypt is:%s\n",key);
+				printf("Nonce before encrypt is:%s\n",nonce);
 				//Send the cipher text
-				if(sendto(newSocket,ciphertext, sizeof(ciphertext), 0, (struct sockaddr *)&serverAddr, addr_size)<0)
+				if(sendto(newSocket,ciphertext, CIPHERTEXT_LEN, 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
 				else
 					printf("Message sent\n");
-				printf("key after encrypt is:%s\n",key);
+				//printf("key after encrypt is:%s\n",key);
 			}
 			
 			//Test if the client closed the socket
