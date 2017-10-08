@@ -9,7 +9,7 @@
 #include <gmp.h>
 
 #define PORT 12345
-#define  MESSAGELEN  30
+#define  MESSAGELEN  200
 #define DHSIZE 256
 #define  CIPHERTEXT_LEN ( MESSAGELEN )
 
@@ -181,7 +181,8 @@ int main(){
 
 				//Generate a random nonce
 				randomGen((char*)nonce,crypto_secretbox_NONCEBYTES);
-				printf("key before is:%s\n",key);
+				//printf("\nfirst nonce is: %s\n", nonce);
+				//printf("key before is:%s\n",key);
 
 				//Send a message
 				crypto_secretbox_detached(ciphertext,mac, message,CIPHERTEXT_LEN, nonce, key);
@@ -212,24 +213,29 @@ int main(){
 				memset(ciphertext,0,CIPHERTEXT_LEN);
 				memset(buffer,0,MESSAGELEN);
 				memset(message,0,MESSAGELEN);
-				memset(nonce,0,crypto_secretbox_NONCEBYTES+5);
+				memset(nonce,0,crypto_secretbox_NONCEBYTES + 5);
 				send(clientSocket,"Start",5,0);
+				memset(mac, 0, crypto_secretbox_MACBYTES + 3);
 				
 				recv(clientSocket, nonce, crypto_secretbox_NONCEBYTES, 0);
+				//printf("\nNonce is : %s\n",nonce);
+				//printf("\nsizeof nonce is:%lu\n",sizeof(nonce));
 				
-				memset(buffer,0,MESSAGELEN);
 				send(clientSocket,"Nonce",5,0);
 				
-				recv(clientSocket,mac,128,0);
-				send(clientSocket,"MAC",3,0);
-				recv(clientSocket, buffer, MESSAGELEN, 0);
-				printf("Nonce is : %s\n",nonce);
+				recv(clientSocket,mac,crypto_secretbox_MACBYTES,0);
 				
-				if(crypto_secretbox_open_detached(message, buffer,mac, sizeof(buffer), nonce, key)>=0)
+				//printf("\nThe mac is: %s\n", mac);
+				
+				send(clientSocket,"MAC",3,0);
+								
+				recv(clientSocket, ciphertext, CIPHERTEXT_LEN, 0);
+				
+				if(crypto_secretbox_open_detached(message, ciphertext, mac, sizeof(ciphertext), nonce, key)>=0)
 					printf("%s", message);
 				else
 					printf("Error decrypt\n");
-				printf("key after decrypt is:%s\n",key);
+				//printf("key after decrypt is:%s\n",key);
 				break;
 			case 2:
 				//Send a message to warn the server

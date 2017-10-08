@@ -8,7 +8,7 @@
 #include <gmp.h>
 
 #define PORT 12345
-#define  MESSAGELEN  30
+#define  MESSAGELEN  200
 #define  CIPHERTEXT_LEN ( MESSAGELEN )
 #define DHSIZE 256
 
@@ -34,8 +34,7 @@ void randomGen(char* temp,int size){
 	
 	int i;
 	char *t=malloc(8);
-	for(i = 0;i<size;i++){
-		
+	for(i = 0;i<size;i++){	
 		randombytes_buf(t,8);
 		temp[i]=*t;
 	}
@@ -183,7 +182,7 @@ int main(){
 	
 	while(1){
 		//printf("key in the while is:%s\n",key);
-		printf("Buffer in the while is: %s\n",buffer);
+		//printf("Buffer in the while is: %s\n",buffer);
 		//Receive a message from the client
 		if(recv(newSocket, buffer, 1024, 0) >= 0){
 			
@@ -191,7 +190,7 @@ int main(){
 			if(!strcmp((char *)buffer,"ExchangeKey")){
 				printf("Exchange\n");
 				exchangeKey(&newSocket,serverAddr,addr_size, (char*)key);
-				printf("The Key is: %s\n",key);
+				//printf("The Key is: %s\n",key);
 				memset(buffer,0,MESSAGELEN);
 				/*if(strcmp((char*)key,"0")){
 					send(newSocket,"OK",2,0);
@@ -205,6 +204,7 @@ int main(){
 				send(newSocket,"Start",5,0);
 				//Receive the nonce
 				recv(newSocket, nonce, crypto_secretbox_NONCEBYTES, 0);
+				//printf("\nfirst nonce is: %s\n", nonce);
 				memset(buffer,0,MESSAGELEN);
 				send(newSocket,"Nonce",5,0);
 				//Receive the mac
@@ -223,9 +223,17 @@ int main(){
 				
 				memset(nonce,0,crypto_secretbox_NONCEBYTES);
 				memset(mac,0,crypto_secretbox_MACBYTES);
+				
+			//	printf("\nmac after reset is: %s\n\nnonce after reset is: %s\n", mac, nonce);
+				
 				//Generate a random nonce
 				randomGen((char*)nonce,crypto_secretbox_NONCEBYTES);
-				crypto_secretbox_detached(ciphertext, mac,newmessage, CIPHERTEXT_LEN, nonce, key);
+				
+				//encrypt the message
+				crypto_secretbox_detached(ciphertext, mac,newmessage, CIPHERTEXT_LEN, nonce, key);				
+				
+				memset(newmessage, 0, MESSAGELEN);
+				strcpy((char*)newmessage, "I have recieved ");
 				//Alert the client
 				if(sendto(newSocket, "transmit", 8, 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
@@ -234,11 +242,14 @@ int main(){
 				//Send the nonce
 				if(sendto(newSocket, nonce, crypto_secretbox_NONCEBYTES, 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
+				//printf("\nNonce is:%s\n",nonce);
+				//printf("\nsizeof nonce is:%lu\n",sizeof(nonce));
 				
 				recv(newSocket, buffer, MESSAGELEN, 0);
 				memset(buffer, 0, MESSAGELEN);
 				//Send the mac
-				printf("The Key is: %s\n",key);
+				//printf("The Key is: %s\n",key);
+				//printf("\nThe mac is: %s\n", mac);
 				
 				if(sendto(newSocket, mac, sizeof(mac), 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
@@ -246,7 +257,7 @@ int main(){
 				
 				memset(buffer, 0, MESSAGELEN);
 				printf("Encrypt done\n");
-				printf("Nonce before encrypt is:%s\n",nonce);
+				
 				//Send the cipher text
 				if(sendto(newSocket,ciphertext, CIPHERTEXT_LEN, 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
