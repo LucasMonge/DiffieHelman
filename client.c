@@ -72,6 +72,7 @@ void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, 
 	mpz_init(B);
 	mpz_init(Key);
 	
+	
 	//Advert the server that exchange start
 	if(sendto(*socket,"ExchangeKey",sizeof("ExchangeKey"),0,(struct sockaddr *) &serverAddr,addr_size)<0){
 		perror("ERROR");
@@ -79,13 +80,7 @@ void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, 
 	//Wait the server before send p
 	if(recv(*socket, buffer, 1024, 0)<0)
 		perror("ERROR");
-	//Send p
-	if(sendto(*socket, convertBin(p), DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
-		perror("ERROR");
-	}
-	//Wait the server before send g
-	if(recv(*socket, buffer, 1024, 0)<0)
-		perror("ERROR");
+	
 	//Send g
 	if(sendto(*socket, convertBin(g), DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
 		perror("ERROR");
@@ -96,16 +91,21 @@ void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, 
 
 	//Convert the number in gmp format
 	mpz_set_str(tempP,convertBin(p),2);
-	//gmp_printf("P is : %Zd\n",tempP);
 	mpz_set_str(tempG,convertBin(g),2);
-	//gmp_printf("G is : %Zd\n",tempG);
 	mpz_set_str(tempA,convertBin(a),2);
-	//gmp_printf("a is : %Zd\n",tempA);
+	
+	mpz_nextprime(tempP,tempP);
+	//Send p
+	if(sendto(*socket, mpz_get_str(NULL,2,tempP), DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
+		perror("ERROR");
+	}
+	//Wait the server before continue
+	if(recv(*socket, buffer, 1024, 0)<0)
+		perror("ERROR");
 	
 	//Make A=g^a%p
 	mpz_powm(A,tempG,tempA,tempP);
-	//gmp_printf("A is : %Zd\n",A);
-
+	
 	//Send A to the server
 	if(sendto(*socket, mpz_get_str(NULL, 2, A), DHSIZE ,0 , (struct sockaddr *) &serverAddr,addr_size)<0){
 		perror("ERROR");
@@ -113,21 +113,18 @@ void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, 
 	
 	//Receive B from the server
 	if(recv(*socket, buffer, 1024, 0) >= 0){
-		//printf("Received B\n");
 		mpz_set_str(B,buffer,2);
-		//gmp_printf("B is: %Zd\n", B);
 		memset(buffer,0,DHSIZE);
 	}
 	
 	//Key = B^a%p
 	mpz_powm(Key, B, tempA, tempP);
-	//gmp_printf("The Key is: %Zd\n",Key);
 	
 	//Return the key
 	mpz_get_str(key, 10, Key);
 }
 int main(){
-	
+	printf("\e[1;1H\e[2J");
 	unsigned char key [DHSIZE];
 	
 	unsigned char nonce [crypto_secretbox_NONCEBYTES];
@@ -156,33 +153,27 @@ int main(){
 	recv(clientSocket, buffer, 1024, 0);
 
 	//message is printed
-	printf("Data received: %s",buffer); 
+	printf("Server says: %s\n",buffer); 
 
 	//Key exchange
-	//while(1){
-		exchangeKey(&clientSocket,serverAddr,addr_size, (char*)key);
-		printf("The Key is: %s\n",key);
-	//	recv(clientSocket, keyCheck, 1024, 0);
-	//	if(strcmp((char*)key,"0")&&strcmp(keyCheck,"OK")){
-	//		break;
-	//	}
-	//}
+	printf("Key exchange ...\n\n");
+	exchangeKey(&clientSocket,serverAddr,addr_size, (char*)key);
+	printf("The Key is: %s\n",key);
+
 	
 	while(1){
 
-		printf("\nChoices:\n 1: Send message\n 2: End communication\n 3: Exchange keys\n");
+		printf("\n\nChoices:\n 1: Send a message\n 2: End communication\n");
 		scanf("%d", &choice);
 		switch(choice){
 
 			case 1:
 				getchar();
-				printf("Write your message :\n");
+				printf("\nWrite your message :\n->");
 				fgets((char*)&message,MESSAGELEN,stdin);
 
 				//Generate a random nonce
 				randomGen((char*)nonce,crypto_secretbox_NONCEBYTES);
-				//printf("\nfirst nonce is: %s\n", nonce);
-				//printf("key before is:%s\n",key);
 
 				//Send a message
 				crypto_secretbox_detached(ciphertext,mac, message,CIPHERTEXT_LEN, nonce, key);
@@ -205,10 +196,8 @@ int main(){
 				if(sendto(clientSocket,ciphertext, sizeof(ciphertext), 0, (struct sockaddr *)&serverAddr, addr_size)<0)
 					perror("ERROR message not send");
 				else
-					printf("Message sent\n");
+					printf("\nMessage sent\n\n");
 				
-				
-				//printf("key is:%s\n",key);
 				recv(clientSocket, buffer, MESSAGELEN, 0);
 				memset(ciphertext,0,CIPHERTEXT_LEN);
 				memset(buffer,0,MESSAGELEN);
@@ -218,24 +207,19 @@ int main(){
 				memset(mac, 0, crypto_secretbox_MACBYTES + 3);
 				
 				recv(clientSocket, nonce, crypto_secretbox_NONCEBYTES, 0);
-				//printf("\nNonce is : %s\n",nonce);
-				//printf("\nsizeof nonce is:%lu\n",sizeof(nonce));
 				
 				send(clientSocket,"Nonce",5,0);
 				
 				recv(clientSocket,mac,crypto_secretbox_MACBYTES,0);
-				
-				//printf("\nThe mac is: %s\n", mac);
 				
 				send(clientSocket,"MAC",3,0);
 								
 				recv(clientSocket, ciphertext, CIPHERTEXT_LEN, 0);
 				
 				if(crypto_secretbox_open_detached(message, ciphertext, mac, sizeof(ciphertext), nonce, key)>=0)
-					printf("%s", message);
+					printf("The server send me this : \n%s", message);
 				else
 					printf("Error decrypt\n");
-				//printf("key after decrypt is:%s\n",key);
 				break;
 			case 2:
 				//Send a message to warn the server
@@ -244,10 +228,6 @@ int main(){
 				//Close the socket
 				close(clientSocket);
 				return 0;
-				break;
-			case 3:
-				//Key exchange
-				printf("The Key is: %s\n",key);
 				break;
 			default: 
 				printf("Wrong choice, try again\n");
