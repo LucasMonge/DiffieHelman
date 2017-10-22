@@ -56,7 +56,7 @@ void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, 
 	char buffer[MESSAGELEN];
 	char g[DHSIZE];
 	char  a[DHSIZE];
-	char  p[DHSIZE]="23";
+	char  p[64];
 	
 	//Generate random number
 	randomGen(g,256);

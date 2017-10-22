@@ -55,7 +55,7 @@ void exchangeKey(int* socket,struct sockaddr_in serverAddr,socklen_t addr_size, 
 	//char p[DHSIZE]="23";
 	char g[DHSIZE];
 	char buffer[DHSIZE];
-	char b[DHSIZE];
+	char b[64];
 	
 	randomGen(b,256);
 	//Initialization of the gmp variables
